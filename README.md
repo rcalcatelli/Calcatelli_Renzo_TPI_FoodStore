@@ -6,7 +6,7 @@ Aplicación web para un negocio de comidas: los clientes se registran, recorren 
 un carrito y confirman pedidos con dirección de entrega y forma de pago; el administrador gestiona
 categorías, productos, stock, pedidos y usuarios desde un panel.
 
-- **Repositorio:** https://github.com/USUARIO/Calcatelli_Renzo_TPI_FoodStore <!-- reemplazar por la URL pública -->
+- **Repositorio:** https://github.com/rcalcatelli/Calcatelli_Renzo_TPI_FoodStore
 - **Video de demostración:** https://ENLACE-AL-VIDEO <!-- reemplazar por el link público -->
 
 | Parte | Stack |
