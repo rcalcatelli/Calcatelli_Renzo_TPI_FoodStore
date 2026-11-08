@@ -1,0 +1,217 @@
+### Food Store API — pruebas manuales con REST Client (VS Code)
+### Ejecutar en orden con "Send Request". REST Client guarda la cookie
+### access_token del login y la envía en las peticiones siguientes.
+
+@base = http://localhost:8000/api/v1
+
+### ── Auth ──────────────────────────────────────────────────────────────
+
+### 401: sin sesión
+GET {{base}}/auth/me
+
+### 201: registro público (crea rol user). Repetirlo da 409
+POST {{base}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "cliente1",
+  "full_name": "Cliente Uno",
+  "email": "cliente1@mail.com",
+  "password": "Cliente123"
+}
+
+### 401: credenciales incorrectas
+POST {{base}}/auth/token
+Content-Type: application/x-www-form-urlencoded
+
+username=cliente1&password=incorrecta
+
+### 200: login del cliente (el token viaja en la cookie HttpOnly)
+POST {{base}}/auth/token
+Content-Type: application/x-www-form-urlencoded
+
+username=cliente1&password=Cliente123
+
+### 200: perfil
+GET {{base}}/auth/me
+
+### ── Catálogo (público) ────────────────────────────────────────────────
+
+### 200: categorías activas
+GET {{base}}/categorias
+
+### 200: productos paginados con búsqueda y filtros
+GET {{base}}/productos?skip=0&limit=5&search=pizza
+
+### 200: detalle de producto
+GET {{base}}/productos/1
+
+### 403: un cliente no puede crear categorías
+POST {{base}}/categorias
+Content-Type: application/json
+
+{ "nombre": "Empanadas" }
+
+### ── Pedidos del cliente ───────────────────────────────────────────────
+
+### 201: crea el pedido y descuenta stock (RN-01)
+# @name pedido
+POST {{base}}/pedidos
+Content-Type: application/json
+
+{
+  "items": [
+    { "producto_id": 1, "cantidad": 2 },
+    { "producto_id": 4, "cantidad": 1 }
+  ],
+  "forma_pago": "EFECTIVO",
+  "direccion_entrega": "San Martín 1234, Mendoza",
+  "notas": "Tocar timbre 2B"
+}
+
+### 400: producto repetido (RN-01)
+POST {{base}}/pedidos
+Content-Type: application/json
+
+{
+  "items": [{ "producto_id": 1, "cantidad": 1 }, { "producto_id": 1, "cantidad": 1 }],
+  "forma_pago": "EFECTIVO",
+  "direccion_entrega": "San Martín 1234"
+}
+
+### 400: stock insuficiente; no se persiste nada (rollback)
+POST {{base}}/pedidos
+Content-Type: application/json
+
+{
+  "items": [{ "producto_id": 1, "cantidad": 999 }],
+  "forma_pago": "TRANSFERENCIA",
+  "direccion_entrega": "San Martín 1234"
+}
+
+### 422: forma de pago inválida (RN-06)
+POST {{base}}/pedidos
+Content-Type: application/json
+
+{
+  "items": [{ "producto_id": 1, "cantidad": 1 }],
+  "forma_pago": "TARJETA",
+  "direccion_entrega": "San Martín 1234"
+}
+
+### 200: mis pedidos
+GET {{base}}/pedidos
+
+### 200: detalle de mi pedido
+GET {{base}}/pedidos/{{pedido.response.body.id}}
+
+### 403: el resumen es solo para admin
+GET {{base}}/pedidos/resumen
+
+### 200: cancela en PENDIENTE y restituye stock (RN-03, RN-04)
+PATCH {{base}}/pedidos/{{pedido.response.body.id}}/cancelar
+
+### 400: ya está CANCELADO (estado terminal)
+PATCH {{base}}/pedidos/{{pedido.response.body.id}}/cancelar
+
+### 200: logout (borra la cookie)
+POST {{base}}/auth/logout
+
+### ── Admin ─────────────────────────────────────────────────────────────
+
+### 200: login del admin del seed
+POST {{base}}/auth/token
+Content-Type: application/x-www-form-urlencoded
+
+username=admin&password=Admin1234!
+
+### 201: crea categoría (409 si el nombre ya existe)
+# @name categoria
+POST {{base}}/categorias
+Content-Type: application/json
+
+{ "nombre": "Empanadas", "descripcion": "Al horno y fritas" }
+
+### 200: actualización parcial
+PUT {{base}}/categorias/{{categoria.response.body.id}}
+Content-Type: application/json
+
+{ "descripcion": "Al horno, docena o media docena" }
+
+### 201: crea producto
+# @name producto
+POST {{base}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Empanada de carne",
+  "descripcion": "Cortada a cuchillo",
+  "precio_base": 1500,
+  "stock": 48,
+  "categoria_id": {{categoria.response.body.id}}
+}
+
+### 404: la categoría no existe
+POST {{base}}/productos
+Content-Type: application/json
+
+{ "nombre": "Producto X", "precio_base": 100, "categoria_id": 99999 }
+
+### 200: cambia stock y disponibilidad
+PATCH {{base}}/productos/{{producto.response.body.id}}/stock
+Content-Type: application/json
+
+{ "stock": 60, "disponible": true }
+
+### 201: pedido del admin para probar la máquina de estados
+# @name pedidoAdmin
+POST {{base}}/pedidos
+Content-Type: application/json
+
+{
+  "items": [{ "producto_id": {{producto.response.body.id}}, "cantidad": 6 }],
+  "forma_pago": "TRANSFERENCIA",
+  "direccion_entrega": "Belgrano 500, Mendoza"
+}
+
+### 400: PENDIENTE → ENTREGADO no es una transición válida (RN-02)
+PATCH {{base}}/pedidos/{{pedidoAdmin.response.body.id}}/estado
+Content-Type: application/json
+
+{ "estado": "ENTREGADO" }
+
+### 200: PENDIENTE → EN_PREPARACION
+PATCH {{base}}/pedidos/{{pedidoAdmin.response.body.id}}/estado
+Content-Type: application/json
+
+{ "estado": "EN_PREPARACION" }
+
+### 200: EN_PREPARACION → ENTREGADO
+PATCH {{base}}/pedidos/{{pedidoAdmin.response.body.id}}/estado
+Content-Type: application/json
+
+{ "estado": "ENTREGADO" }
+
+### 200: todos los pedidos, filtrados por estado
+GET {{base}}/pedidos?estado=ENTREGADO&limit=100
+
+### 200: resumen del panel
+GET {{base}}/pedidos/resumen
+
+### 200: listado de usuarios
+GET {{base}}/admin/usuarios
+
+### 400: el admin no puede desactivarse a sí mismo (el admin del seed tiene id 1)
+POST {{base}}/admin/usuarios/1/desactivar
+
+### 404: usuario inexistente
+POST {{base}}/admin/usuarios/99999/activar
+
+### 204: baja lógica del producto (después, su detalle responde 404)
+DELETE {{base}}/productos/{{producto.response.body.id}}
+
+### 404: producto dado de baja
+GET {{base}}/productos/{{producto.response.body.id}}
+
+### 204: baja lógica de la categoría (el nombre no se libera)
+DELETE {{base}}/categorias/{{categoria.response.body.id}}
