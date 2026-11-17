@@ -7,7 +7,7 @@ un carrito y confirman pedidos con dirección de entrega y forma de pago; el adm
 categorías, productos, stock, pedidos y usuarios desde un panel.
 
 - **Repositorio:** https://github.com/rcalcatelli/Calcatelli_Renzo_TPI_FoodStore
-- **Video de demostración:** https://ENLACE-AL-VIDEO <!-- reemplazar por el link público -->
+- **Video de demostración:** https://youtu.be/oXOt7TRbh4c
 
 | Parte | Stack |
 |---|---|
